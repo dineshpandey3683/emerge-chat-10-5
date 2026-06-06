@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: emerge-chat-10-5
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+    healthCheckPath: /
+    autoDeploy: true
