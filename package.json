@@ -1,0 +1,17 @@
+{
+  "name": "emerge-chat-10-5",
+  "version": "1.0.0",
+  "description": "Secure chat that beats Slack/Discord/Teams",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2",
+    "sqlite3": "^5.1.6"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
