@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⟁ emerge // chat — 10/5</title>
+  <style>
+    body { background: #020408; color: #eef5ff; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .app-container { width: 95%; max-width: 800px; height: 80vh; border: 1px solid #0ff; display: flex; flex-direction: column; background: rgba(0,0,0,0.8); }
+    .messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .message { padding: 0.5rem; border-bottom: 1px solid #333; }
+    .input-area { padding: 1rem; display: flex; gap: 1rem; border-top: 1px solid #0ff; }
+    input { flex: 1; background: #111; border: 1px solid #0ff; color: #fff; padding: 0.5rem; }
+    button { background: #0ff; border: none; color: #000; padding: 0.5rem 1rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div id="app" class="app-container">
+  <div class="auth-panel">
+    <h2>⟁ emerge // chat</h2>
+    <input type="text" id="handleInput" placeholder="handle">
+    <button id="authBtn">ENTER</button>
+  </div>
+</div>
+<script>
+  let sessionKey, ws, currentHandle;
+  const generateKey = async () => {
+    sessionKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+    const raw = await crypto.subtle.exportKey("raw", sessionKey);
+    return btoa(String.fromCharCode(...new Uint8Array(raw)));
+  };
+  const encrypt = async (text) => {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, sessionKey, new TextEncoder().encode(text));
+    return { body: btoa(String.fromCharCode(...new Uint8Array(encrypted))), nonce: btoa(String.fromCharCode(...iv)) };
+  };
+  const decrypt = async (body, nonce) => {
+    const data = Uint8Array.from(atob(body), c => c.charCodeAt(0));
+    const iv = Uint8Array.from(atob(nonce), c => c.charCodeAt(0));
+    const dec = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, sessionKey, data);
+    return new TextDecoder().decode(dec);
+  };
+  const startChat = async (handle, pubkey) => {
+    currentHandle = handle;
+    ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
+    ws.onopen = () => ws.send(JSON.stringify({ type: "auth", handle, pubkey }));
+    ws.onmessage = async (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "auth_ok") renderChat();
+      if (msg.type === "msg") {
+        const plain = await decrypt(msg.body, msg.nonce);
+        const div = document.createElement("div");
+        div.className = "message";
+        div.innerText = `${msg.from}: ${plain}`;
+        document.getElementById("messageList").appendChild(div);
+      }
+    };
+  };
+  const renderChat = () => {
+    document.getElementById("app").innerHTML = `
+      <div id="messageList" class="messages"></div>
+      <div class="input-area"><input id="msgIn" placeholder="@user msg"><button id="send">SEND</button></div>
+    `;
+    document.getElementById("send").onclick = async () => {
+      const raw = document.getElementById("msgIn").value;
+      const [to, ...rest] = raw.split(" ");
+      const { body, nonce } = await encrypt(rest.join(" "));
+      ws.send(JSON.stringify({ type: "msg", to: to.replace("@",""), body, nonce }));
+      document.getElementById("msgIn").value = "";
+    };
+  };
+  document.getElementById("authBtn").onclick = async () => {
+    const pubkey = await generateKey();
+    startChat(document.getElementById("handleInput").value, pubkey);
+  };
+</script>
+</body>
+</html>
