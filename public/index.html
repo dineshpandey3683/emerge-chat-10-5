@@ -5,74 +5,283 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>⟁ emerge // chat — 10/5</title>
   <style>
-    body { background: #020408; color: #eef5ff; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .app-container { width: 95%; max-width: 800px; height: 80vh; border: 1px solid #0ff; display: flex; flex-direction: column; background: rgba(0,0,0,0.8); }
-    .messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
-    .message { padding: 0.5rem; border-bottom: 1px solid #333; }
-    .input-area { padding: 1rem; display: flex; gap: 1rem; border-top: 1px solid #0ff; }
-    input { flex: 1; background: #111; border: 1px solid #0ff; color: #fff; padding: 0.5rem; }
-    button { background: #0ff; border: none; color: #000; padding: 0.5rem 1rem; cursor: pointer; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: radial-gradient(circle at 20% 30%, #0a0f1e, #020408);
+      font-family: system-ui, -apple-system, 'Segoe UI', monospace;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #eef5ff;
+    }
+    .app-container {
+      width: 95%;
+      max-width: 1400px;
+      height: 90vh;
+      background: rgba(8, 16, 24, 0.75);
+      backdrop-filter: blur(20px);
+      border-radius: 2rem;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      box-shadow: 0 0 40px rgba(0, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .header {
+      padding: 1rem 2rem;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.4);
+    }
+    .logo {
+      font-weight: 800;
+      font-size: 1.6rem;
+      background: linear-gradient(135deg, #aaffff, #2a9d8f);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .status {
+      font-size: 0.7rem;
+      font-family: monospace;
+      background: #0a121c;
+      padding: 0.3rem 0.8rem;
+      border-radius: 2rem;
+      border-left: 2px solid #0ff;
+    }
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .message {
+      max-width: 75%;
+      padding: 0.7rem 1.2rem;
+      border-radius: 1.2rem;
+      background: rgba(30, 45, 60, 0.8);
+      align-self: flex-start;
+    }
+    .message.own {
+      align-self: flex-end;
+      background: rgba(0, 160, 210, 0.25);
+      border: 0.5px solid rgba(0, 255, 255, 0.5);
+    }
+    .msg-meta {
+      font-size: 0.65rem;
+      opacity: 0.7;
+      margin-bottom: 0.3rem;
+    }
+    .input-area {
+      padding: 1rem 1.5rem 1.8rem;
+      display: flex;
+      gap: 0.75rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-top: 1px solid rgba(0, 255, 255, 0.2);
+    }
+    #messageInput {
+      flex: 1;
+      background: rgba(20, 30, 45, 0.9);
+      border: 1px solid #2a4c66;
+      border-radius: 2rem;
+      padding: 0.8rem 1.2rem;
+      color: #eef5ff;
+      font-family: inherit;
+      outline: none;
+    }
+    #messageInput:focus {
+      border-color: #0ff;
+      box-shadow: 0 0 12px rgba(0, 255, 255, 0.2);
+    }
+    button {
+      background: #0a2a2f;
+      border: 1px solid #0ff;
+      color: #0ff;
+      padding: 0 1.8rem;
+      border-radius: 2rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: monospace;
+    }
+    button:hover {
+      background: #0ff;
+      color: #000;
+      box-shadow: 0 0 12px #0ff;
+    }
+    .auth-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+    .auth-card {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(20px);
+      padding: 2.5rem;
+      border-radius: 2rem;
+      width: 360px;
+      text-align: center;
+      border: 1px solid rgba(0, 255, 255, 0.5);
+    }
+    .auth-card input {
+      width: 100%;
+      padding: 0.8rem;
+      margin: 1rem 0;
+      background: #111a22;
+      border: 1px solid #2a6f7a;
+      border-radius: 2rem;
+      color: white;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
-<div id="app" class="app-container">
-  <div class="auth-panel">
-    <h2>⟁ emerge // chat</h2>
-    <input type="text" id="handleInput" placeholder="handle">
-    <button id="authBtn">ENTER</button>
-  </div>
-</div>
+<div class="app-container" id="app"></div>
+
 <script>
-  let sessionKey, ws, currentHandle;
-  const generateKey = async () => {
-    sessionKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+  let sessionKey = null;
+  let ws = null;
+  let currentHandle = '';
+
+  async function generateKey() {
+    sessionKey = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
     const raw = await crypto.subtle.exportKey("raw", sessionKey);
     return btoa(String.fromCharCode(...new Uint8Array(raw)));
-  };
-  const encrypt = async (text) => {
+  }
+
+  async function encrypt(text) {
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, sessionKey, new TextEncoder().encode(text));
-    return { body: btoa(String.fromCharCode(...new Uint8Array(encrypted))), nonce: btoa(String.fromCharCode(...iv)) };
-  };
-  const decrypt = async (body, nonce) => {
-    const data = Uint8Array.from(atob(body), c => c.charCodeAt(0));
-    const iv = Uint8Array.from(atob(nonce), c => c.charCodeAt(0));
-    const dec = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, sessionKey, data);
-    return new TextDecoder().decode(dec);
-  };
-  const startChat = async (handle, pubkey) => {
+    const encoded = new TextEncoder().encode(text);
+    const encrypted = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      sessionKey,
+      encoded
+    );
+    return {
+      body: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+      nonce: btoa(String.fromCharCode(...iv))
+    };
+  }
+
+  async function decrypt(encryptedB64, nonceB64) {
+    const iv = Uint8Array.from(atob(nonceB64), c => c.charCodeAt(0));
+    const data = Uint8Array.from(atob(encryptedB64), c => c.charCodeAt(0));
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      sessionKey,
+      data
+    );
+    return new TextDecoder().decode(decrypted);
+  }
+
+  function addMessage(sender, text, isOwn) {
+    const container = document.getElementById("messageList");
+    if (!container) return;
+    const div = document.createElement("div");
+    div.className = "message " + (isOwn ? "own" : "");
+    div.innerHTML = `<div class="msg-meta">${sender} • ${new Date().toLocaleTimeString()}</div><div>${escapeHtml(text)}</div>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>]/g, function(m) {
+      if (m === "&") return "&amp;";
+      if (m === "<") return "&lt;";
+      if (m === ">") return "&gt;";
+      return m;
+    });
+  }
+
+  async function showAuth() {
+    const pubkey = await generateKey();
+    document.getElementById("app").innerHTML = `
+      <div class="auth-panel">
+        <div class="auth-card">
+          <div class="logo" style="font-size:2rem;">⟁ emerge // chat</div>
+          <p style="margin:0.5rem 0;">10/5 · secure · zero trace</p>
+          <input type="text" id="handleInput" placeholder="handle (a-z, 0-9, _)" />
+          <button id="authBtn">⤚ ENTER ENCRYPTED ⤚</button>
+        </div>
+      </div>
+    `;
+    document.getElementById("authBtn").onclick = async () => {
+      const handle = document.getElementById("handleInput").value.trim();
+      if (!handle.match(/^[a-zA-Z0-9_]{2,20}$/)) {
+        alert("Handle: 2-20 chars, letters, numbers, underscore");
+        return;
+      }
+      startChat(handle, pubkey);
+    };
+  }
+
+  function startChat(handle, pubkey) {
     currentHandle = handle;
-    ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-    ws.onopen = () => ws.send(JSON.stringify({ type: "auth", handle, pubkey }));
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.host;
+    ws = new WebSocket(`${protocol}//${host}`);
+    
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: "auth", handle, pubkey }));
+    };
+    
     ws.onmessage = async (ev) => {
       const msg = JSON.parse(ev.data);
-      if (msg.type === "auth_ok") renderChat();
-      if (msg.type === "msg") {
+      if (msg.type === "auth_ok") {
+        renderMainChat();
+      } else if (msg.type === "msg") {
         const plain = await decrypt(msg.body, msg.nonce);
-        const div = document.createElement("div");
-        div.className = "message";
-        div.innerText = `${msg.from}: ${plain}`;
-        document.getElementById("messageList").appendChild(div);
+        addMessage(msg.from, plain, false);
       }
     };
-  };
-  const renderChat = () => {
+  }
+
+  function renderMainChat() {
     document.getElementById("app").innerHTML = `
-      <div id="messageList" class="messages"></div>
-      <div class="input-area"><input id="msgIn" placeholder="@user msg"><button id="send">SEND</button></div>
+      <div class="header">
+        <div class="logo">⟁ emerge // chat · ${escapeHtml(currentHandle)}</div>
+        <div class="status">🔒 e2e encrypted</div>
+      </div>
+      <div class="messages" id="messageList"></div>
+      <div class="input-area">
+        <input type="text" id="messageInput" placeholder="@username message ..." />
+        <button id="sendBtn">✧ SEND ✧</button>
+      </div>
     `;
-    document.getElementById("send").onclick = async () => {
-      const raw = document.getElementById("msgIn").value;
-      const [to, ...rest] = raw.split(" ");
-      const { body, nonce } = await encrypt(rest.join(" "));
-      ws.send(JSON.stringify({ type: "msg", to: to.replace("@",""), body, nonce }));
-      document.getElementById("msgIn").value = "";
+    const inputEl = document.getElementById("messageInput");
+    const sendBtn = document.getElementById("sendBtn");
+    
+    const sendMessage = async () => {
+      let raw = inputEl.value.trim();
+      if (!raw) return;
+      const match = raw.match(/^@(\S+)\s+(.*)$/);
+      if (!match) {
+        addMessage("System", "Format: @username message", false);
+        inputEl.value = "";
+        return;
+      }
+      const [, to, text] = match;
+      const { body, nonce } = await encrypt(text);
+      ws.send(JSON.stringify({ type: "msg", to, body, nonce, tag: "" }));
+      addMessage(currentHandle, `to @${to}: ${text}`, true);
+      inputEl.value = "";
     };
-  };
-  document.getElementById("authBtn").onclick = async () => {
-    const pubkey = await generateKey();
-    startChat(document.getElementById("handleInput").value, pubkey);
-  };
+    
+    sendBtn.onclick = sendMessage;
+    inputEl.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+  }
+
+  showAuth();
 </script>
 </body>
 </html>
