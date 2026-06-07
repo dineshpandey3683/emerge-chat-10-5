@@ -11,11 +11,11 @@ on:
         options:
           - full
           - app-only
-          - hardening-only
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       
@@ -26,19 +26,31 @@ jobs:
           username: root
           password: ${{ secrets.VPS_PASSWORD }}
           port: 65002
+          command_timeout: 8m
           script_stop: true
           script: |
             set -e
-            echo "=== Starting deployment ==="
+            echo "=== EMERGE-CHAT DEPLOYMENT STARTING ==="
+            
+            # Detect pkg manager
+            PKG="dnf"
+            command -v dnf &>/dev/null || PKG="yum"
+            command -v $PKG &>/dev/null || PKG="apt-get"
             
             # System update
-            apt-get update -y
-            apt-get install -y curl git nginx certbot python3-certbot-nginx fail2ban
+            $PKG update -y
+            $PKG install -y curl git wget epel-release 2>/dev/null || $PKG install -y curl git wget
+            $PKG install -y nginx certbot python3-certbot-nginx fail2ban
+            
+            # Stop LiteSpeed
+            systemctl stop lsws 2>/dev/null || true
+            systemctl disable lsws 2>/dev/null || true
             
             # Node.js 20.x
-            if ! node --version 2>/dev/null | grep -q "v20"; then
+            if ! node --version 2>/dev/null | grep -q "v20\|v22"; then
+              curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - 2>/dev/null || \
               curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-              apt-get install -y nodejs
+              $PKG install -y nodejs
             fi
             
             # Deploy app
@@ -52,13 +64,13 @@ jobs:
             pm2 delete emerge-chat 2>/dev/null || true
             pm2 start server.js --name "emerge-chat"
             pm2 save
-            pm2 startup systemd -u root --hp /root
+            pm2 startup systemd -u root --hp /root 2>/dev/null || pm2 startup
             
             # Nginx
-            cat > /etc/nginx/sites-available/emerge-chat << 'NGINX'
+            cat > /etc/nginx/conf.d/emerge-chat.conf << 'NGINX'
             server {
                 listen 80;
-                server_name chat.dineshpandey.shop;
+                server_name chat.dineshpandey.shop _;
                 location / {
                     proxy_pass http://127.0.0.1:8080;
                     proxy_http_version 1.1;
@@ -72,15 +84,19 @@ jobs:
                 }
             }
             NGINX
-            ln -sf /etc/nginx/sites-available/emerge-chat /etc/nginx/sites-enabled/
-            rm -f /etc/nginx/sites-enabled/default
+            rm -f /etc/nginx/conf.d/default.conf
             nginx -t && systemctl restart nginx && systemctl enable nginx
+            
+            # Firewall
+            firewall-cmd --permanent --add-service=http 2>/dev/null || true
+            firewall-cmd --permanent --add-service=https 2>/dev/null || true
+            firewall-cmd --permanent --add-port=65002/tcp 2>/dev/null || true
+            firewall-cmd --reload 2>/dev/null || true
             
             # SSL
             certbot --nginx -d chat.dineshpandey.shop --non-interactive --agree-tos --email admin@dineshpandey.shop --redirect || echo "SSL pending DNS"
             
             # Fail2ban
-            systemctl enable fail2ban && systemctl start fail2ban
             cat > /etc/fail2ban/jail.local << 'F2B'
             [DEFAULT]
             bantime = 3600
@@ -90,20 +106,19 @@ jobs:
             enabled = true
             port = 65002
             filter = sshd
-            logpath = /var/log/auth.log
+            logpath = /var/log/secure
             maxretry = 3
             F2B
-            systemctl restart fail2ban
+            systemctl enable fail2ban && systemctl restart fail2ban
             
             # Create deployuser
             id deployuser 2>/dev/null || useradd -m -s /bin/bash deployuser
             echo "deployuser:${{ secrets.VPS_PASSWORD }}" | chpasswd
-            usermod -aG sudo deployuser 2>/dev/null || usermod -aG wheel deployuser
+            usermod -aG wheel deployuser 2>/dev/null || usermod -aG sudo deployuser
             echo "deployuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/deployuser
             chmod 440 /etc/sudoers.d/deployuser
             
             # SSH Hardening
-            cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
             sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
             sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
             grep -q "^AllowUsers" /etc/ssh/sshd_config && sed -i 's/^AllowUsers.*/AllowUsers deployuser/' /etc/ssh/sshd_config || echo "AllowUsers deployuser" >> /etc/ssh/sshd_config
@@ -111,4 +126,5 @@ jobs:
             
             echo "=== DEPLOYMENT COMPLETE ==="
             echo "URL: https://chat.dineshpandey.shop"
+            echo "Direct: http://92.112.189.35"
             pm2 status
