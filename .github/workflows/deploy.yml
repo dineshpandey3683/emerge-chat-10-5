@@ -1,0 +1,114 @@
+name: Deploy to Hostinger VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_type:
+        description: 'Deploy type'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - app-only
+          - hardening-only
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 92.112.189.35
+          username: root
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -e
+            echo "=== Starting deployment ==="
+            
+            # System update
+            apt-get update -y
+            apt-get install -y curl git nginx certbot python3-certbot-nginx fail2ban
+            
+            # Node.js 20.x
+            if ! node --version 2>/dev/null | grep -q "v20"; then
+              curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+              apt-get install -y nodejs
+            fi
+            
+            # Deploy app
+            rm -rf /var/www/emerge-chat
+            git clone https://github.com/dineshpandey3683/emerge-chat-10-5.git /var/www/emerge-chat
+            cd /var/www/emerge-chat
+            npm install --production
+            
+            # PM2
+            npm install -g pm2
+            pm2 delete emerge-chat 2>/dev/null || true
+            pm2 start server.js --name "emerge-chat"
+            pm2 save
+            pm2 startup systemd -u root --hp /root
+            
+            # Nginx
+            cat > /etc/nginx/sites-available/emerge-chat << 'NGINX'
+            server {
+                listen 80;
+                server_name chat.dineshpandey.shop;
+                location / {
+                    proxy_pass http://127.0.0.1:8080;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection "upgrade";
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    proxy_read_timeout 86400;
+                }
+            }
+            NGINX
+            ln -sf /etc/nginx/sites-available/emerge-chat /etc/nginx/sites-enabled/
+            rm -f /etc/nginx/sites-enabled/default
+            nginx -t && systemctl restart nginx && systemctl enable nginx
+            
+            # SSL
+            certbot --nginx -d chat.dineshpandey.shop --non-interactive --agree-tos --email admin@dineshpandey.shop --redirect || echo "SSL pending DNS"
+            
+            # Fail2ban
+            systemctl enable fail2ban && systemctl start fail2ban
+            cat > /etc/fail2ban/jail.local << 'F2B'
+            [DEFAULT]
+            bantime = 3600
+            findtime = 600
+            maxretry = 5
+            [sshd]
+            enabled = true
+            port = 65002
+            filter = sshd
+            logpath = /var/log/auth.log
+            maxretry = 3
+            F2B
+            systemctl restart fail2ban
+            
+            # Create deployuser
+            id deployuser 2>/dev/null || useradd -m -s /bin/bash deployuser
+            echo "deployuser:${{ secrets.VPS_PASSWORD }}" | chpasswd
+            usermod -aG sudo deployuser 2>/dev/null || usermod -aG wheel deployuser
+            echo "deployuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/deployuser
+            chmod 440 /etc/sudoers.d/deployuser
+            
+            # SSH Hardening
+            cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+            sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+            sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+            grep -q "^AllowUsers" /etc/ssh/sshd_config && sed -i 's/^AllowUsers.*/AllowUsers deployuser/' /etc/ssh/sshd_config || echo "AllowUsers deployuser" >> /etc/ssh/sshd_config
+            sshd -t && systemctl restart sshd
+            
+            echo "=== DEPLOYMENT COMPLETE ==="
+            echo "URL: https://chat.dineshpandey.shop"
+            pm2 status
