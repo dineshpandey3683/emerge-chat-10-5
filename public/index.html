@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>⟁ emerge // chat — 10/5</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: radial-gradient(circle at 20% 30%, #0a0f1e, #020408);
-      font-family: system-ui, -apple-system, 'Segoe UI', monospace;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', monospace;
       height: 100vh;
       display: flex;
       justify-content: center;
@@ -25,262 +25,123 @@
       border: 1px solid rgba(0, 255, 255, 0.3);
       box-shadow: 0 0 40px rgba(0, 255, 255, 0.1);
       display: flex;
-      flex-direction: column;
       overflow: hidden;
     }
-    .header {
-      padding: 1rem 2rem;
-      border-bottom: 1px solid rgba(0, 255, 255, 0.3);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(0, 0, 0, 0.4);
-    }
-    .logo {
-      font-weight: 800;
-      font-size: 1.6rem;
-      background: linear-gradient(135deg, #aaffff, #2a9d8f);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-    .status {
-      font-size: 0.7rem;
-      font-family: monospace;
-      background: #0a121c;
-      padding: 0.3rem 0.8rem;
-      border-radius: 2rem;
-      border-left: 2px solid #0ff;
-    }
-    .messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-    }
-    .message {
-      max-width: 75%;
-      padding: 0.7rem 1.2rem;
-      border-radius: 1.2rem;
-      background: rgba(30, 45, 60, 0.8);
-      align-self: flex-start;
-    }
-    .message.own {
-      align-self: flex-end;
-      background: rgba(0, 160, 210, 0.25);
-      border: 0.5px solid rgba(0, 255, 255, 0.5);
-    }
-    .msg-meta {
-      font-size: 0.65rem;
-      opacity: 0.7;
-      margin-bottom: 0.3rem;
-    }
-    .input-area {
-      padding: 1rem 1.5rem 1.8rem;
-      display: flex;
-      gap: 0.75rem;
-      background: rgba(0, 0, 0, 0.3);
-      border-top: 1px solid rgba(0, 255, 255, 0.2);
-    }
-    #messageInput {
-      flex: 1;
-      background: rgba(20, 30, 45, 0.9);
-      border: 1px solid #2a4c66;
-      border-radius: 2rem;
-      padding: 0.8rem 1.2rem;
-      color: #eef5ff;
-      font-family: inherit;
-      outline: none;
-    }
-    #messageInput:focus {
-      border-color: #0ff;
-      box-shadow: 0 0 12px rgba(0, 255, 255, 0.2);
-    }
-    button {
-      background: #0a2a2f;
-      border: 1px solid #0ff;
-      color: #0ff;
-      padding: 0 1.8rem;
-      border-radius: 2rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: monospace;
-    }
-    button:hover {
-      background: #0ff;
-      color: #000;
-      box-shadow: 0 0 12px #0ff;
-    }
-    .auth-panel {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-    }
-    .auth-card {
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(20px);
-      padding: 2.5rem;
-      border-radius: 2rem;
-      width: 360px;
-      text-align: center;
-      border: 1px solid rgba(0, 255, 255, 0.5);
-    }
-    .auth-card input {
-      width: 100%;
-      padding: 0.8rem;
-      margin: 1rem 0;
-      background: #111a22;
-      border: 1px solid #2a6f7a;
-      border-radius: 2rem;
-      color: white;
-      text-align: center;
-    }
+    .sidebar { width: 260px; background: rgba(0, 0, 0, 0.5); border-right: 1px solid rgba(0, 255, 255, 0.2); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+    .sidebar h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; color: #0ff; opacity: 0.7; }
+    .online-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .online-user { padding: 0.5rem; background: rgba(0, 255, 255, 0.1); border-radius: 0.5rem; font-size: 0.9rem; cursor: pointer; transition: 0.1s; display: flex; align-items: center; gap: 0.5rem; }
+    .online-user:hover { background: rgba(0, 255, 255, 0.2); transform: translateX(4px); }
+    .online-user::before { content: "●"; color: #0f0; font-size: 0.7rem; }
+    .chat-area { flex: 1; display: flex; flex-direction: column; }
+    .header { padding: 1rem 2rem; border-bottom: 1px solid rgba(0, 255, 255, 0.3); display: flex; justify-content: space-between; align-items: center; background: rgba(0, 0, 0, 0.4); }
+    .logo { font-weight: 800; font-size: 1.4rem; background: linear-gradient(135deg, #aaffff, #2a9d8f); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .status { font-size: 0.7rem; font-family: monospace; background: #0a121c; padding: 0.3rem 0.8rem; border-radius: 2rem; border-left: 2px solid #0ff; }
+    .messages { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.8rem; }
+    .message { max-width: 75%; padding: 0.7rem 1.2rem; border-radius: 1.2rem; background: rgba(30, 45, 60, 0.8); align-self: flex-start; animation: fadeSlideUp 0.15s ease; }
+    .message.own { align-self: flex-end; background: rgba(0, 160, 210, 0.25); border: 0.5px solid rgba(0, 255, 255, 0.5); }
+    .msg-meta { font-size: 0.65rem; opacity: 0.7; margin-bottom: 0.3rem; display: flex; gap: 0.8rem; }
+    .input-area { padding: 1rem 1.5rem 1.8rem; display: flex; gap: 0.75rem; background: rgba(0, 0, 0, 0.3); border-top: 1px solid rgba(0, 255, 255, 0.2); }
+    #messageInput { flex: 1; background: rgba(20, 30, 45, 0.9); border: 1px solid #2a4c66; border-radius: 2rem; padding: 0.8rem 1.2rem; color: #eef5ff; font-family: inherit; outline: none; }
+    button { background: #0a2a2f; border: 1px solid #0ff; color: #0ff; padding: 0 1.8rem; border-radius: 2rem; font-weight: 600; cursor: pointer; transition: 0.1s; }
+    button:hover { background: #0ff; color: #000; box-shadow: 0 0 12px #0ff; }
+    .auth-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
+    .auth-card { background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(20px); padding: 2.5rem; border-radius: 2rem; width: 360px; text-align: center; border: 1px solid rgba(0, 255, 255, 0.5); }
+    .auth-card input { width: 100%; padding: 0.8rem; margin: 1rem 0; background: #111a22; border: 1px solid #2a6f7a; border-radius: 2rem; color: white; text-align: center; font-size: 1rem; }
+    @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-thumb { background: #0ff; border-radius: 10px; }
+    @media (max-width: 768px) { .sidebar { display: none; } }
   </style>
 </head>
 <body>
-<div class="app-container" id="app"></div>
-
+<div id="app" style="width: 100%; display: flex; justify-content: center;"></div>
 <script>
-  let sessionKey = null;
-  let ws = null;
-  let currentHandle = '';
-
+  let sessionKey = null, ws = null, currentHandle = '', onlineUsers = [];
   async function generateKey() {
-    sessionKey = await crypto.subtle.generateKey(
-      { name: "AES-GCM", length: 256 },
-      true,
-      ["encrypt", "decrypt"]
-    );
+    sessionKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
     const raw = await crypto.subtle.exportKey("raw", sessionKey);
     return btoa(String.fromCharCode(...new Uint8Array(raw)));
   }
-
   async function encrypt(text) {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(text);
-    const encrypted = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      sessionKey,
-      encoded
-    );
-    return {
-      body: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
-      nonce: btoa(String.fromCharCode(...iv))
-    };
+    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, sessionKey, new TextEncoder().encode(text));
+    return { body: btoa(String.fromCharCode(...new Uint8Array(encrypted))), nonce: btoa(String.fromCharCode(...iv)) };
   }
-
   async function decrypt(encryptedB64, nonceB64) {
     const iv = Uint8Array.from(atob(nonceB64), c => c.charCodeAt(0));
     const data = Uint8Array.from(atob(encryptedB64), c => c.charCodeAt(0));
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      sessionKey,
-      data
-    );
-    return new TextDecoder().decode(decrypted);
+    const dec = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, sessionKey, data);
+    return new TextDecoder().decode(dec);
   }
-
-  function addMessage(sender, text, isOwn) {
+  function addMessage(sender, text, isOwn, timestamp = null) {
     const container = document.getElementById("messageList");
     if (!container) return;
     const div = document.createElement("div");
-    div.className = "message " + (isOwn ? "own" : "");
-    div.innerHTML = `<div class="msg-meta">${sender} • ${new Date().toLocaleTimeString()}</div><div>${escapeHtml(text)}</div>`;
+    div.className = `message ${isOwn ? "own" : ""}`;
+    const timeStr = timestamp ? new Date(timestamp * 1000).toLocaleTimeString() : new Date().toLocaleTimeString();
+    div.innerHTML = `<div class="msg-meta"><span>${sender}</span><span>${timeStr}</span></div><div class="msg-body">${text}</div>`;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
   }
-
-  function escapeHtml(str) {
-    return str.replace(/[&<>]/g, function(m) {
-      if (m === "&") return "&amp;";
-      if (m === "<") return "&lt;";
-      if (m === ">") return "&gt;";
-      return m;
-    });
+  function updateOnlineList() {
+    const container = document.getElementById("onlineList");
+    if (!container) return;
+    container.innerHTML = onlineUsers.filter(u => u !== currentHandle).map(u => `<div class="online-user" onclick="document.getElementById(\'messageInput\').value=\'@${u} \'">${u}</div>`).join('');
+    document.getElementById("onlineCount").innerText = onlineUsers.length;
   }
-
-  async function showAuth() {
-    const pubkey = await generateKey();
-    document.getElementById("app").innerHTML = `
-      <div class="auth-panel">
-        <div class="auth-card">
-          <div class="logo" style="font-size:2rem;">⟁ emerge // chat</div>
-          <p style="margin:0.5rem 0;">10/5 · secure · zero trace</p>
-          <input type="text" id="handleInput" placeholder="handle (a-z, 0-9, _)" />
-          <button id="authBtn">⤚ ENTER ENCRYPTED ⤚</button>
-        </div>
-      </div>
-    `;
-    document.getElementById("authBtn").onclick = async () => {
-      const handle = document.getElementById("handleInput").value.trim();
-      if (!handle.match(/^[a-zA-Z0-9_]{2,20}$/)) {
-        alert("Handle: 2-20 chars, letters, numbers, underscore");
-        return;
-      }
-      startChat(handle, pubkey);
-    };
-  }
-
   function startChat(handle, pubkey) {
     currentHandle = handle;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
-    ws = new WebSocket(`${protocol}//${host}`);
-    
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "auth", handle, pubkey }));
-    };
-    
+    ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
+    ws.onopen = () => ws.send(JSON.stringify({ type: "auth", handle, pubkey }));
     ws.onmessage = async (ev) => {
       const msg = JSON.parse(ev.data);
-      if (msg.type === "auth_ok") {
-        renderMainChat();
-      } else if (msg.type === "msg") {
+      if (msg.type === "auth_ok") renderMainChat();
+      else if (msg.type === "history") {
+        for (const m of msg.messages) {
+          try {
+            const plain = await decrypt(m.encrypted_body, m.nonce);
+            addMessage(m.from_handle === currentHandle ? "You" : m.from_handle, plain, m.from_handle === currentHandle, m.timestamp);
+          } catch(e) {}
+        }
+      }
+      else if (msg.type === "msg") {
         const plain = await decrypt(msg.body, msg.nonce);
         addMessage(msg.from, plain, false);
       }
+      else if (msg.type === "presence") { onlineUsers = msg.online || []; updateOnlineList(); }
     };
   }
-
   function renderMainChat() {
     document.getElementById("app").innerHTML = `
-      <div class="header">
-        <div class="logo">⟁ emerge // chat · ${escapeHtml(currentHandle)}</div>
-        <div class="status">🔒 e2e encrypted</div>
-      </div>
-      <div class="messages" id="messageList"></div>
-      <div class="input-area">
-        <input type="text" id="messageInput" placeholder="@username message ..." />
-        <button id="sendBtn">✧ SEND ✧</button>
-      </div>
-    `;
-    const inputEl = document.getElementById("messageInput");
-    const sendBtn = document.getElementById("sendBtn");
-    
-    const sendMessage = async () => {
-      let raw = inputEl.value.trim();
-      if (!raw) return;
+      <div class="app-container">
+        <div class="sidebar"><h3>● ONLINE — <span id="onlineCount">0</span></h3><div class="online-list" id="onlineList"></div></div>
+        <div class="chat-area">
+          <div class="header"><div class="logo">⟁ emerge // chat · @${currentHandle}</div><div class="status">🔒 e2e encrypted</div></div>
+          <div class="messages" id="messageList"></div>
+          <div class="input-area"><input type="text" id="messageInput" placeholder="@user message..." autocomplete="off" /><button id="sendBtn">SEND</button></div>
+        </div>
+      </div>`;
+    const input = document.getElementById("messageInput");
+    const send = async () => {
+      const raw = input.value.trim();
       const match = raw.match(/^@(\S+)\s+(.*)$/);
-      if (!match) {
-        addMessage("System", "Format: @username message", false);
-        inputEl.value = "";
-        return;
-      }
+      if (!match) return;
       const [, to, text] = match;
       const { body, nonce } = await encrypt(text);
-      ws.send(JSON.stringify({ type: "msg", to, body, nonce, tag: "" }));
-      addMessage(currentHandle, `to @${to}: ${text}`, true);
-      inputEl.value = "";
+      ws.send(JSON.stringify({ type: "msg", to, body, nonce }));
+      addMessage("You", `to ${to}: ${text}`, true);
+      input.value = "";
     };
-    
-    sendBtn.onclick = sendMessage;
-    inputEl.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+    document.getElementById("sendBtn").onclick = send;
+    input.onkeypress = (e) => { if (e.key === "Enter") send(); };
   }
-
+  async function showAuth() {
+    const pubkey = await generateKey();
+    document.getElementById("app").innerHTML = `<div class="auth-panel"><div class="auth-card"><h2>⟁ emerge // chat</h2><input type="text" id="handleInput" placeholder="handle"><button id="authBtn">ENTER</button></div></div>`;
+    document.getElementById("authBtn").onclick = () => startChat(document.getElementById("handleInput").value, pubkey);
+  }
   showAuth();
 </script>
 </body>
